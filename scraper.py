@@ -248,7 +248,7 @@ class SimpleQComScraper:
                     if response.status_code == 200:
                         feed = feedparser.parse(response.content)
                         
-                        for entry in feed.entries[:20]:  # Check more articles
+                        for entry in feed.entries[:25]:  # Check more articles
                             # Check if article is within specified timeframe
                             if hasattr(entry, 'published_parsed') and entry.published_parsed:
                                 pub_date = datetime(*entry.published_parsed[:6])
@@ -262,8 +262,12 @@ class SimpleQComScraper:
                                 print(f"    Extracting: {entry.title[:60]}...")
                                 full_content = self.extract_full_article(entry.link)
                                 
-                                # Only keep articles with substantial content
-                                if len(full_content) > 100:
+                                # Only keep articles with substantial content (more than just error messages)
+                                if (len(full_content) > 200 and 
+                                    not full_content.startswith("Content extraction failed") and 
+                                    not full_content.startswith("Error extracting content") and
+                                    not full_content.startswith("Could not fetch")):
+                                    
                                     # Parse publication date
                                     pub_date = self.parse_date(entry.get('published_parsed'))
                                     
@@ -277,17 +281,15 @@ class SimpleQComScraper:
                                     }
                                     
                                     articles.append(article)
-                                    time.sleep(1)  # Rate limiting
+                                    time.sleep(2)  # More polite rate limiting
+                                else:
+                                    print(f"    Skipped: Content too short or extraction failed")
                                 
                 except Exception as e:
                     print(f"    Error scraping {feed_url}: {e}")
         
-        # Add Google News search results
-        try:
-            google_articles = self.add_google_news_search(days_back)
-            articles.extend(google_articles)
-        except Exception as e:
-            print(f"Error in Google News search: {e}")
+        # REMOVE Google News search completely since it doesn't work
+        print("Skipping Google News search (redirect URLs don't work for content extraction)")
         
         # Remove duplicates
         articles = self.remove_duplicates(articles)
